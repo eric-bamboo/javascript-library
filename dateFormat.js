@@ -154,23 +154,26 @@
 				return true;
 			};
 			this.validateDate = function(value, fromFormat) {
-				if (value.length == fromFormat.length) {
-					var year = value.substring(fromFormat.indexOf("Y"), fromFormat.lastIndexOf("Y") + 1);
-					var month = value.substring(fromFormat.indexOf("M"), fromFormat.lastIndexOf("M") + 1);
-					var day = value.substring(fromFormat.indexOf("D"), fromFormat.lastIndexOf("D") + 1);
+				var date = this.getDate(value, fromFormat);
+				if(date == null){
+					return false;
+				}
+				var year = date.year;
+				var month = date.month;
+				var day = date.day;
 
-					if (this.validateYear(year) && this.validateMonth(month) && this.validateDay(day)) {
-						if (this.parseDate(year, month, day)) {
-							setDateObject(year - 0, month - 0, day - 0);
-							return true;
-						} else {
-							addErrorMsg("dateConvertError");
-						}
+				if (this.validateYear(year) && this.validateMonth(month) && this.validateDay(day)) {
+					if (this.parseDate(year, month, day)) {
+						setDateObject(year - 0, month - 0, day - 0);
+						return true;
+					} else {
+						addErrorMsg("dateConvertError");
 					}
-				} else {
-					addErrorMsg("dateConvertError");
 				}
 				return false;
+			};
+			this.getDate = function(value, fromFormat, key) {
+				return this.dateTimeParser(value, fromFormat, "date", key);
 			};
 			this.validateYear = function(year) {
 				if (year.length == 4) {
@@ -233,9 +236,10 @@
 				}
 			};
 			this.convertDate = function(toFormat) {
-				var yearStub = toFormat.substring(toFormat.indexOf("Y"), toFormat.lastIndexOf("Y") + 1);
-				var monthStub = toFormat.substring(toFormat.indexOf("M"), toFormat.lastIndexOf("M") + 1);
-				var dayStub = toFormat.substring(toFormat.indexOf("D"), toFormat.lastIndexOf("D") + 1);
+				var y = constant.Y, m = constant.M, d = constant.D;
+				var yearStub = toFormat.substring(toFormat.indexOf(y), toFormat.lastIndexOf(y) + 1);
+				var monthStub = toFormat.substring(toFormat.indexOf(m), toFormat.lastIndexOf(m) + 1);
+				var dayStub = toFormat.substring(toFormat.indexOf(d), toFormat.lastIndexOf(d) + 1);
 
 				var date = getDateObject();
 				toFormat = toFormat.replace(yearStub, date.year + "");
@@ -286,17 +290,17 @@
 				return true;
 			};
 			this.validateTime = function(value, fromFormat) {
-				if (value.length == fromFormat.length) {
-					var hour = value.substring(fromFormat.indexOf("h"), fromFormat.lastIndexOf("h") + 1);
-					var minute = value.substring(fromFormat.indexOf("m"), fromFormat.lastIndexOf("m") + 1);
-					var second = value.substring(fromFormat.indexOf("s"), fromFormat.lastIndexOf("s") + 1);
+				var time = this.getTime(value, fromFormat);
+				if(time == null){
+					return false;
+				}
+				var hour = time.hour;
+				var minute = time.minute;
+				var second = time.second;
 
-					if (this.validateHour(hour) && this.validateMinute(minute) && this.validateSecond(second)) {
-						setTimeObject(hour - 0, minute - 0, second - 0);
-						return true;
-					}
-				} else {
-					addErrorMsg("timeConvertError");
+				if (this.validateHour(hour) && this.validateMinute(minute) && this.validateSecond(second)) {
+					setTimeObject(hour - 0, minute - 0, second - 0);
+					return true;
 				}
 				return false;
 			};
@@ -352,9 +356,9 @@
 				}
 			};
 			this.convertTime = function(toFormat, timeSystem, timeWrapper) {
-				var hourStub = toFormat.substring(toFormat.indexOf("h"), toFormat.lastIndexOf("h") + 1);
-				var minuteStub = toFormat.substring(toFormat.indexOf("m"), toFormat.lastIndexOf("m") + 1);
-				var secondStub = toFormat.substring(toFormat.indexOf("s"), toFormat.lastIndexOf("s") + 1);
+				var hourStub = toFormat.substring(toFormat.indexOf(constant.h), toFormat.lastIndexOf(constant.h) + 1);
+				var minuteStub = toFormat.substring(toFormat.indexOf(constant.m), toFormat.lastIndexOf(constant.m) + 1);
+				var secondStub = toFormat.substring(toFormat.indexOf(constant.s), toFormat.lastIndexOf(constant.s) + 1);
 
 				var time = getTimeObject();
 				if (timeSystem == constant.twelveTimeSystem) {
@@ -390,7 +394,76 @@
 					return toFormat;
 				}
 			};
+			this.getTime = function(value, fromFormat, key) {
+				return this.dateTimeParser(value, fromFormat, "time", key);
+			};
+			
+			this.dateTimeParser = function(value, fromFormat, type, key) {
+				var firstChar = fromFormat.charAt(0);
+				var midChar;
+				var lastChar = fromFormat.charAt(fromFormat.length - 1);
 
+				if (type == "date") {
+					midChar = (constant.Y + constant.M + constant.D).replace(firstChar, "").replace(lastChar, "");
+				} else if (type == "time") {
+					midChar = (constant.h + constant.m + constant.s).replace(firstChar, "").replace(lastChar, "");
+				} else {
+					return null;
+				}
+
+				var chars = [ firstChar, midChar, lastChar ], d = value;
+				var firstDelimiter, secondDelimiter, start, end;
+				var stub, stubArr = [], datetime = {};
+
+				start = fromFormat.lastIndexOf(firstChar) + 1;
+				end = fromFormat.indexOf(midChar);
+				firstDelimiter = fromFormat.substring(start, end);
+
+				start = fromFormat.lastIndexOf(midChar) + 1;
+				end = fromFormat.indexOf(lastChar);
+				secondDelimiter = fromFormat.substring(start, end);
+
+				stub = d.substring(0, d.indexOf(firstDelimiter[0]));
+				stubArr.push(stub);
+				d = d.replace(stub + firstDelimiter, "");
+				stub = d.substring(0, d.lastIndexOf(secondDelimiter[0]));
+				stubArr.push(stub);
+				d = d.replace(stub + secondDelimiter, "");
+				stubArr.push(d);
+
+				for (var i = 0; i < chars.length; i++) {
+					this.populateDateTime(chars[i], datetime, stubArr[i]);
+				}
+				if (key != undefined) {
+					return datetime[key];
+				}else{
+					return datetime;
+				}
+			};
+			this.populateDateTime = function(type, datetime, value) {
+				switch (type) {
+				case constant.Y:
+					datetime.year = value;
+					break;
+				case constant.M:
+					datetime.month = value;
+					break;
+				case constant.D:
+					datetime.day = value;
+					break;
+				case constant.h:
+					datetime.hour = value;
+					break;
+				case constant.m:
+					datetime.minute = value;
+					break;
+				case constant.s:
+					datetime.second = value;
+					break;
+				default:
+					break;
+				}
+			};
 			// error process
 			this.errorProcessor = function(error) {
 				switch (error) {
