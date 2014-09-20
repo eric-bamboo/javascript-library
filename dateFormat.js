@@ -9,7 +9,7 @@
 			s : "s",
 			date : "DATE",
 			time : "TIME",
-			dateTimeDelimiter : "",
+			dateTimeDelimiter : " ",
 			twelveTimeSystem : "12-Hour",
 			twentyFourTimeSystem : "24-Hour",
 
